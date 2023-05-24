@@ -12,7 +12,10 @@ class State(Enum):
     REPORT_VIOLENCE = auto()
     REPORT_OTHER = auto()
     VIOLENT_ORG_PER = auto()
+    VIOLENT_PER = auto()
+    VIOLENT_ORG = auto()
     VIOLENT_THREAT = auto()
+    ASK_TO_BLOCK = auto()
 
 class Report:
     START_KEYWORD = "report"
@@ -76,10 +79,10 @@ class Report:
         if self.state == State.REPORT_VIOLENCE:
             if message.content.lower() in ["animal abuse", "death or severe injury"]:
                 self.state = State.REPORT_COMPLETE_LOW_PIORITY
-            if message.content.lower() == "dangerous organization or individual":
+            elif message.content.lower() == "dangerous organization or individual":
                 self.state = State.VIOLENT_ORG_PER
                 return ["Are you reporting an organization or an individual?\nYour options are: `organization` or `individual`"]
-            if message.content.lower() == "violent threat":
+            elif message.content.lower() == "violent threat":
                 self.state = State.VIOLENT_THREAT
                 return ["Is this an imminent threat?\nYour options are: `yes` or `no`"]
             
@@ -88,12 +91,25 @@ class Report:
 
         if self.state == State.VIOLENT_ORG_PER:
             if message.content.lower() == "individual":
-                # need to continue report flow here
-            if message.content.lower() == "organization":
-                # need to continue report flow here
+                self.state = State.VIOLENT_PER
+                return ["Do you suspect this individual to be an imminent threat?\nYour options are: `yes` or `no`"]
+            elif message.content.lower() == "organization":
+                self.state = State.VIOLENT_ORG
+                return ["Do you suspect this organization to be an imminent threat?\nYour options are: `yes` or `no`"]
 
+        if self.state == State.VIOLENT_PER:
+            self.state = State.ASK_TO_BLOCK
+            return ["Would you like to block this individual?\nYour options are: `yes` or `no`"]
+        
+        if self.state == State.VIOLENT_ORG:
+            if message.content.lower() == "yes":
+                self.state = State.REPORT_COMPLETE_HIGH_PRIORITY
+            elif message.content.lower() == "no":
+                self.state = State.REPORT_COMPLETE_LOW_PIORITY
+                return ["Please select one of the following:\n`The post praises a designated entity or event`\n`The post provides and/or encourages financial support of a designated entity`\n`The post promotes the representation of a designated entity`"]
 
-
+        if self.state == State.ASK_TO_BLOCK:
+            self.state = State.REPORT_COMPLETE_HIGH_PRIORITY
 
         if self.state == State.REPORT_COMPLETE_LOW_PIORITY:
             self.state = State.REPORT_COMPLETE
