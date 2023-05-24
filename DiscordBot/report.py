@@ -14,7 +14,6 @@ class State(Enum):
     VIOLENT_ORG_PER = auto()
     VIOLENT_PER = auto()
     VIOLENT_ORG = auto()
-    VIOLENT_THREAT = auto()
     ASK_TO_BLOCK = auto()
 
 class Report:
@@ -83,11 +82,8 @@ class Report:
                 self.state = State.VIOLENT_ORG_PER
                 return ["Are you reporting an organization or an individual?\nYour options are: `organization` or `individual`"]
             elif message.content.lower() == "violent threat":
-                self.state = State.VIOLENT_THREAT
+                self.state = State.REPORT_COMPLETE_HIGH_PRIORITY
                 return ["Is this an imminent threat?\nYour options are: `yes` or `no`"]
-            
-        if self.state == State.VIOLENT_THREAT:
-            self.state = State.REPORT_COMPLETE_HIGH_PRIORITY
 
         if self.state == State.VIOLENT_ORG_PER:
             if message.content.lower() == "individual":
@@ -108,6 +104,7 @@ class Report:
                 self.state = State.REPORT_COMPLETE_LOW_PIORITY
                 return ["Please select one of the following:\n`The post praises a designated entity or event`\n`The post provides and/or encourages financial support of a designated entity`\n`The post promotes the representation of a designated entity`"]
 
+        # Implement actually blocking??
         if self.state == State.ASK_TO_BLOCK:
             self.state = State.REPORT_COMPLETE_HIGH_PRIORITY
 
@@ -123,8 +120,3 @@ class Report:
 
     def report_complete(self):
         return self.state == State.REPORT_COMPLETE
-    
-
-
-    
-
