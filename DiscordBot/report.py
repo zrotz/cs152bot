@@ -7,6 +7,12 @@ class State(Enum):
     AWAITING_MESSAGE = auto()
     MESSAGE_IDENTIFIED = auto()
     REPORT_COMPLETE = auto()
+    REPORT_COMPLETE_LOW_PIORITY = auto()
+    REPORT_COMPLETE_HIGH_PRIORITY = auto()
+    REPORT_VIOLENCE = auto()
+    REPORT_OTHER = auto()
+    VIOLENT_ORG_PER = auto()
+    VIOLENT_THREAT = auto()
 
 class Report:
     START_KEYWORD = "report"
@@ -56,10 +62,46 @@ class Report:
             # Here we've found the message - it's up to you to decide what to do next!
             self.state = State.MESSAGE_IDENTIFIED
             return ["I found this message:", "```" + message.author.name + ": " + message.content + "```", \
-                    "This is all I know how to do right now - it's up to you to build out the rest of my reporting flow!"]
+                    "What is the reason for reporting this message?  Your options are:", \
+                    "`Violence or Dangerous Organization`\n`Bullying or Harassment`\n`Scam or Fraud`\n`Intellectual Property Violation`\n`Offensive Content`\n`Personal Preference`"]
         
         if self.state == State.MESSAGE_IDENTIFIED:
-            return ["<insert rest of reporting flow here>"]
+            if message.content.lower() != "violence or dangerous organization":
+                self.state = State.REPORT_COMPLETE_LOW_PIORITY
+            else:
+                self.state = State.REPORT_VIOLENCE
+                return ["What is the type of abuse?  Your options are:", \
+                        "`Violent Threat`\n`Dangerous organization or individual`\n`Animal Abuse`\n`Death or severe injury`"]
+
+        if self.state == State.REPORT_VIOLENCE:
+            if message.content.lower() in ["animal abuse", "death or severe injury"]:
+                self.state = State.REPORT_COMPLETE_LOW_PIORITY
+            if message.content.lower() == "dangerous organization or individual":
+                self.state = State.VIOLENT_ORG_PER
+                return ["Are you reporting an organization or an individual?\nYour options are: `organization` or `individual`"]
+            if message.content.lower() == "violent threat":
+                self.state = State.VIOLENT_THREAT
+                return ["Is this an imminent threat?\nYour options are: `yes` or `no`"]
+            
+        if self.state == State.VIOLENT_THREAT:
+            self.state = State.REPORT_COMPLETE_HIGH_PRIORITY
+
+        if self.state == State.VIOLENT_ORG_PER:
+            if message.content.lower() == "individual":
+                # need to continue report flow here
+            if message.content.lower() == "organization":
+                # need to continue report flow here
+
+
+
+
+        if self.state == State.REPORT_COMPLETE_LOW_PIORITY:
+            self.state = State.REPORT_COMPLETE
+            return ["Thank you for submitting a report. Our content moderation team will review the post and will decide on the appropiate action."]
+
+        if self.state == State.REPORT_COMPLETE_HIGH_PRIORITY:
+            self.state = State.REPORT_COMPLETE
+            return ["Thank you for submitting a report. Our content moderation team will prioritize this post. If this is an imminent threat, please also contact your local authorities."]
 
         return []
 
