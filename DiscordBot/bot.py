@@ -89,13 +89,19 @@ class ModBot(discord.Client):
         if author_id not in self.reports:
             self.reports[author_id] = Report(self)
 
-        # Let the report class handle this message; forward all the messages it returns to uss
+        # Let the report class handle this message; forward all the messages it returns to us
         responses = await self.reports[author_id].handle_message(message)
         for r in responses:
             await message.channel.send(r)
+            # if "Thank you for submitting a report" in [r]:
+            #     await self.handle_reported_message(self.reports[author_id].reported_message, self.reports[author_id].report_info)
+            #     continue
+                
 
         # If the report is complete or cancelled, remove it from our map
         if self.reports[author_id].report_complete():
+            if message.content.lower() != "cancel":
+                await self.handle_reported_message(message.author.name, self.reports[author_id].reported_message, self.reports[author_id].report_info)
             self.reports.pop(author_id)
 
     async def handle_channel_message(self, message):
@@ -104,12 +110,22 @@ class ModBot(discord.Client):
             return
 
         # Forward the message to the mod channel
-        mod_channel = self.mod_channels[message.guild.id]
-        await mod_channel.send(f'Forwarded message:\n{message.author.name}: "{message.content}"')
-        scores = self.eval_text(message.content)
+        # mod_channel = self.mod_channels[message.guild.id]
+        # await mod_channel.send(f'Forwarded message:\n{message.author.name}: "{message.content}"')
+        # scores = self.eval_text(message.content)
+        # await mod_channel.send(self.code_format(scores))
+
+    async def handle_reported_message(self, reporting_user, reported_message, report_info):
+        # Forward the message to the mod channel
+        mod_channel = self.mod_channels[reported_message.guild.id]
+        if ("violent threat" in report_info or "dangerous organization or individual" in report_info) and not ("organization" in report_info and "no" in report_info):
+            await mod_channel.send(f'HIGH PRIORITY!!\nNew user reported message:\n{reported_message.author.name}: "{reported_message.content}"\n\nReporting user is {reporting_user}\nUser reporting flow is: {report_info}')
+        else:
+            await mod_channel.send(f'New user reported message:\n{reported_message.author.name}: "{reported_message.content}"\n\nReporting user is {reporting_user}\nUser reporting flow is: {report_info}')
+
+        scores = self.eval_text(reported_message.content)
         await mod_channel.send(self.code_format(scores))
 
-    
     def eval_text(self, message):
         ''''
         TODO: Once you know how you want to evaluate messages in your channel, 

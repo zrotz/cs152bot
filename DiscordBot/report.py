@@ -14,6 +14,8 @@ class State(Enum):
     VIOLENT_ORG_PER = auto()
     VIOLENT_PER = auto()
     VIOLENT_ORG = auto()
+    VIOLENT_ORG_NOT_IMMINENT = auto()
+    IMMINENT_THREAT = auto()
     ASK_TO_BLOCK = auto()
 
 class Report:
@@ -25,6 +27,8 @@ class Report:
         self.state = State.REPORT_START
         self.client = client
         self.message = None
+        self.reported_message = None
+        self.report_info = []
     
     async def handle_message(self, message):
         '''
@@ -63,11 +67,13 @@ class Report:
 
             # Here we've found the message - it's up to you to decide what to do next!
             self.state = State.MESSAGE_IDENTIFIED
+            self.reported_message = message
             return ["I found this message:", "```" + message.author.name + ": " + message.content + "```", \
                     "What is the reason for reporting this message?  Your options are:", \
                     "`Violence or Dangerous Organization`\n`Bullying or Harassment`\n`Scam or Fraud`\n`Intellectual Property Violation`\n`Offensive Content`\n`Personal Preference`"]
         
         if self.state == State.MESSAGE_IDENTIFIED:
+            self.report_info.append(message.content.lower())
             if message.content.lower() != "violence or dangerous organization":
                 self.state = State.REPORT_COMPLETE_LOW_PIORITY
             else:
@@ -78,35 +84,52 @@ class Report:
         if self.state == State.REPORT_VIOLENCE:
             if message.content.lower() in ["animal abuse", "death or severe injury"]:
                 self.state = State.REPORT_COMPLETE_LOW_PIORITY
+                self.report_info.append(message.content.lower())
             elif message.content.lower() == "dangerous organization or individual":
                 self.state = State.VIOLENT_ORG_PER
+                self.report_info.append(message.content.lower())
                 return ["Are you reporting an organization or an individual?\nYour options are: `organization` or `individual`"]
             elif message.content.lower() == "violent threat":
-                self.state = State.REPORT_COMPLETE_HIGH_PRIORITY
+                self.state = State.IMMINENT_THREAT
+                self.report_info.append(message.content.lower())
                 return ["Is this an imminent threat?\nYour options are: `yes` or `no`"]
 
         if self.state == State.VIOLENT_ORG_PER:
             if message.content.lower() == "individual":
                 self.state = State.VIOLENT_PER
+                self.report_info.append(message.content.lower())
                 return ["Do you suspect this individual to be an imminent threat?\nYour options are: `yes` or `no`"]
             elif message.content.lower() == "organization":
                 self.state = State.VIOLENT_ORG
+                self.report_info.append(message.content.lower())
                 return ["Do you suspect this organization to be an imminent threat?\nYour options are: `yes` or `no`"]
 
         if self.state == State.VIOLENT_PER:
             self.state = State.ASK_TO_BLOCK
+            self.report_info.append(message.content.lower())
             return ["Would you like to block this individual?\nYour options are: `yes` or `no`"]
         
         if self.state == State.VIOLENT_ORG:
             if message.content.lower() == "yes":
                 self.state = State.REPORT_COMPLETE_HIGH_PRIORITY
+                self.report_info.append(message.content.lower())
             elif message.content.lower() == "no":
-                self.state = State.REPORT_COMPLETE_LOW_PIORITY
+                self.state = State.VIOLENT_ORG_NOT_IMMINENT
+                self.report_info.append(message.content.lower())
                 return ["Please select one of the following:\n`The post praises a designated entity or event`\n`The post provides and/or encourages financial support of a designated entity`\n`The post promotes the representation of a designated entity`"]
+
+        if self.state == State.VIOLENT_ORG_NOT_IMMINENT:
+            self.state = State.REPORT_COMPLETE_LOW_PIORITY
+            self.report_info.append(message.content.lower())
+
+        if self.state == State.IMMINENT_THREAT:
+            self.state = State.REPORT_COMPLETE_HIGH_PRIORITY
+            self.report_info.append(message.content.lower())
 
         # Implement actually blocking??
         if self.state == State.ASK_TO_BLOCK:
             self.state = State.REPORT_COMPLETE_HIGH_PRIORITY
+            self.report_info.append(message.content.lower())
 
         if self.state == State.REPORT_COMPLETE_LOW_PIORITY:
             self.state = State.REPORT_COMPLETE
