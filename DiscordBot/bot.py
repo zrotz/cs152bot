@@ -7,6 +7,7 @@ import logging
 import re
 import requests
 from report import Report
+from Moderator import Moderator_Review
 import pdb
 
 # Set up logging to the console
@@ -34,6 +35,7 @@ class ModBot(discord.Client):
         self.group_num = None
         self.mod_channels = {} # Map from guild to the mod channel id for that guild
         self.reports = {} # Map from user IDs to the state of their report
+        self.reviews = {} # Map from moderator to the state of their review
 
     async def on_ready(self):
         print(f'{self.user.name} has connected to Discord! It is these guilds:')
@@ -69,8 +71,16 @@ class ModBot(discord.Client):
             await self.handle_channel_message(message)
         else:
             await self.handle_dm(message)
-
+            
     async def handle_dm(self, message):
+        if message.content == Moderator_Review.START_KEYWORD and message.author.name in Moderator_Review.MODERATORS:
+            await self.handle_mod_dm(message)
+        elif message.author.id in [m.reviewer for m in self.reviews.values()] or message.content in [m.mod_message.jump_url for m in self.reviews.values()]:
+            await self.handle_mod_dm(message)
+        else:
+            await self.handle_user_dm(message)
+
+    async def handle_user_dm(self, message):
         # Handle a help message
         if message.content == Report.HELP_KEYWORD:
             reply =  "Use the `report` command to begin the reporting process.\n"
@@ -93,10 +103,6 @@ class ModBot(discord.Client):
         responses = await self.reports[author_id].handle_message(message)
         for r in responses:
             await message.channel.send(r)
-            # if "Thank you for submitting a report" in [r]:
-            #     await self.handle_reported_message(self.reports[author_id].reported_message, self.reports[author_id].report_info)
-            #     continue
-                
 
         # If the report is complete or cancelled, remove it from our map
         if self.reports[author_id].report_complete():
@@ -104,6 +110,63 @@ class ModBot(discord.Client):
                 await self.handle_reported_message(message.author.name, self.reports[author_id].reported_message, self.reports[author_id].report_info)
             self.reports.pop(author_id)
 
+    
+    async def handle_mod_dm(self, message):
+        if message.content == Moderator_Review.HELP_KEYWORD:
+            reply =  "Use the `review` command to begin the review process.\n"
+            reply += "Use the `cancel` command to cancel the review process.\n"
+            await message.channel.send(reply)
+            return
+        elif message.content == Moderator_Review.START_KEYWORD:
+            reply =  "Thank you for starting the review process. "
+            reply += "Say `help` at any time for more information.\n\n"
+            reply += "Please copy paste the link to the message from the mod channel that you want to review.\n"
+            reply += "You can obtain this link by right-clicking the message and clicking `Copy Message Link`."
+            await message.channel.send(reply)
+            return
+        elif message.content == Moderator_Review.CANCEL_KEYWORD:
+            for m in self.reviews.values():
+                if m.reviewer == message.author.id:
+                    m.reviewer = None
+                    continue
+            await message.channel.send("Your review has been cancelled.")
+        
+        new_review = None
+        review = None
+        responses = []
+
+        for m in self.reviews.values():
+            if m.mod_message.jump_url == message.content:
+                new_review = m
+                continue
+
+        # If there is no active review, create one
+        # Moderator can only be reviewing one post at a time
+        if new_review is not None:
+            if len([m.reviewer for m in self.reviews.values() if m.reviewer == message.author.id]) == 0:
+                self.reviews[new_review.mod_message.id].reviewer = message.author.id
+                review = self.reviews[new_review.mod_message.id]
+            else:
+                await message.channel.send("Another moderator is currently handling this review OR you have not finished a review you started.")
+                return
+        else:
+            # review is already underway
+            for m in self.reviews.values():
+                if m.reviewer == message.author.id:
+                    review = m
+                    continue
+
+        # Let the moderator review class handle this message; forward all the messages it returns to us
+        responses = await review.handle_message(message)
+        for r in responses:
+            await message.channel.send(r)
+
+        # If the review is complete, remove it from our map and the mod channel (which acts as a "to-do" list)
+        if review.review_complete():
+            await review.mod_message.delete()
+            self.reviews.pop(review.mod_message.id)
+        
+    
     async def handle_channel_message(self, message):
         # Only handle messages sent in the "group-#" channel
         if not message.channel.name == f'group-{self.group_num}':
@@ -119,12 +182,15 @@ class ModBot(discord.Client):
         # Forward the message to the mod channel
         mod_channel = self.mod_channels[reported_message.guild.id]
         if ("violent threat" in report_info or "dangerous organization or individual" in report_info) and not ("organization" in report_info and "no" in report_info):
-            await mod_channel.send(f'HIGH PRIORITY!!\nNew user reported message:\n{reported_message.author.name}: "{reported_message.content}"\n\nReporting user is {reporting_user}\nUser reporting flow is: {report_info}')
+            mod_message = await mod_channel.send(f'HIGH PRIORITY!!\nNew user reported message:\n{reported_message.author.name}: "{reported_message.content}"\n\nReporting user is {reporting_user}\nUser reporting flow is: {report_info}')
         else:
-            await mod_channel.send(f'New user reported message:\n{reported_message.author.name}: "{reported_message.content}"\n\nReporting user is {reporting_user}\nUser reporting flow is: {report_info}')
+            mod_message = await mod_channel.send(f'New user reported message:\n{reported_message.author.name}: "{reported_message.content}"\n\nReporting user is {reporting_user}\nUser reporting flow is: {report_info}')
 
-        scores = self.eval_text(reported_message.content)
-        await mod_channel.send(self.code_format(scores))
+        self.reviews[mod_message.id] = Moderator_Review(self, reporting_user, reported_message, report_info, mod_message)
+
+        # Used to evaluate classifier later
+        # scores = self.eval_text(reported_message.content)
+        # await mod_channel.send(self.code_format(scores))
 
     def eval_text(self, message):
         ''''
