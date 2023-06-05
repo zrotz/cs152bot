@@ -16,7 +16,7 @@ class State(Enum):
     
 
 class Moderator_Review:
-    MODERATORS = ["zr", "Yesenia"]
+    MODERATORS = ["zr", "Yesenia", "gurugautham"]
     START_KEYWORD = "review"
     CANCEL_KEYWORD = "cancel"
     HELP_KEYWORD = "help"

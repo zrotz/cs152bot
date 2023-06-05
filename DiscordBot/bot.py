@@ -1,4 +1,5 @@
 # bot.py
+from classifier import classify
 import discord
 from discord.ext import commands
 import os
@@ -171,7 +172,14 @@ class ModBot(discord.Client):
         # Only handle messages sent in the "group-#" channel
         if not message.channel.name == f'group-{self.group_num}':
             return
-
+        
+        print(message.content)
+        print(classify(message.content, "dt"))
+        if (classify(message.content, "dt")[0] == 1.0):
+            mod_channel = self.mod_channels[message.guild.id]
+            mod_message = await mod_channel.send(f'AUTOMATICALLY FLAGGED MESSAGE:\n{message.author.name}: "{message.content}"')
+            self.reviews[mod_message.id] = Moderator_Review(self, "AUTOMATED FLAGGING", message, ["hate speech"], mod_message)
+            
         # Forward the message to the mod channel
         # mod_channel = self.mod_channels[message.guild.id]
         # await mod_channel.send(f'Forwarded message:\n{message.author.name}: "{message.content}"')
