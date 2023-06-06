@@ -73,8 +73,9 @@ def classify(text, model):
     cleaned = []
     cleaned.append(clean_text(text))
     x = fitted_vectorizer.transform(cleaned)
-    print(x)
     print("Predicting...")
-    return classifier.predict(x)
+    out = classifier.predict(x)
+    print(out)
+    return out
 
-print(classify("i hate all humans", "dt"))
+# print(classify("i hate all humans", "dt"))

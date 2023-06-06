@@ -174,7 +174,6 @@ class ModBot(discord.Client):
             return
         
         print(message.content)
-        print(classify(message.content, "dt"))
         if (classify(message.content, "dt")[0] == 1.0):
             mod_channel = self.mod_channels[message.guild.id]
             mod_message = await mod_channel.send(f'AUTOMATICALLY FLAGGED MESSAGE:\n{message.author.name}: "{message.content}"')
