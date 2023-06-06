@@ -104,6 +104,6 @@ def classify(text, model):
     print(out)
     return out
 
-print(classify(" i hate jews", "dt"))
-print(classify("We need the Apartheid to happen again", "dt"))
-print(classify("kill the jews", "dt"))
+# print(classify(" i hate jews", "dt"))
+# print(classify("We need the Apartheid to happen again", "dt"))
+# print(classify("kill the jews", "dt"))
