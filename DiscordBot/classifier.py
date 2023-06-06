@@ -43,7 +43,7 @@ def clean_text(text):
     text=" ".join(text)
     return text
 
-def decision_tree():
+def models(model):
     ds = pd.read_csv("./labeled_data.csv")
     ds = ds[['class', 'tweet']]
     y = ds.iloc[:, :-1].values
@@ -56,20 +56,46 @@ def decision_tree():
     tfid = TfidfVectorizer()
     fitted_vectorizer = tfid.fit(cleaned)
     X = fitted_vectorizer.transform(cleaned).toarray()
-    X_train, X_test, y_train, y_test = train_test_split(X, y_hate, test_size = 0.20, random_state = 0)
-    classifier_dt = DecisionTreeClassifier(criterion = 'entropy', random_state = 0)
-    print("Training...")
-    classifier_dt.fit(X_train, y_train)
-    pickle.dump(classifier_dt, open("./TFid_DT.pickle", "wb"))
-    pickle.dump(fitted_vectorizer, open("./DT_vect.pickle", "wb"))
-    return classifier_dt, fitted_vectorizer
+    X_train, X_test, y_train, y_test = train_test_split(X, y_hate, test_size = 0.1, random_state = 0)
+    if model == "dt":
+        classifier = DecisionTreeClassifier(criterion = 'entropy', random_state = 0)
+        print("Training...")
+        classifier.fit(X_train, y_train)
+        pickle.dump(classifier, open("./TFid_DT.pickle", "wb"))
+        pickle.dump(fitted_vectorizer, open("./DT_vect.pickle", "wb"))
+    elif model == "rf":
+        classifier = RandomForestClassifier(n_estimators = 10, criterion = 'entropy', random_state = 0)
+        print("Training...")
+        classifier.fit(X_train, y_train)
+        pickle.dump(classifier, open("./TFid_RF.pickle", "wb"))
+        pickle.dump(fitted_vectorizer, open("./RF_vect.pickle", "wb"))
+    elif model == "lr":
+        classifier = LogisticRegression(random_state = 0)
+        print("Training...")
+        classifier.fit(X_train, y_train)
+        pickle.dump(classifier, open("./TFid_LR.pickle", "wb"))
+        pickle.dump(fitted_vectorizer, open("./LR_vect.pickle", "wb"))
+
+        
+    return classifier, fitted_vectorizer
 
 def classify(text, model):
     if model == "dt":
         if not os.path.exists("./TFid_DT.pickle"):
-            decision_tree()
+            models("dt")
         classifier = pickle.load(open("./TFid_DT.pickle", "rb"))
         fitted_vectorizer = pickle.load(open("./DT_vect.pickle", "rb"))
+    elif model == "rf":
+        if not os.path.exists("./TFid_RF.pickle"):
+            models("rf")
+        classifier = pickle.load(open("./TFid_RF.pickle", "rb"))
+        fitted_vectorizer = pickle.load(open("./RF_vect.pickle", "rb"))
+    elif model == "lr":
+        if not os.path.exists("./TFid_LR.pickle"):
+            models("lr")
+        classifier = pickle.load(open("./TFid_LR.pickle", "rb"))
+        fitted_vectorizer = pickle.load(open("./LR_vect.pickle", "rb"))
+        
     cleaned = []
     cleaned.append(clean_text(text))
     x = fitted_vectorizer.transform(cleaned)
@@ -78,4 +104,6 @@ def classify(text, model):
     print(out)
     return out
 
-# print(classify("i hate all humans", "dt"))
+print(classify(" i hate jews", "dt"))
+print(classify("We need the Apartheid to happen again", "dt"))
+print(classify("kill the jews", "dt"))
